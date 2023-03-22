@@ -18,6 +18,10 @@ data "aws_subnet" "private2" {
   id = aws_subnet.private2.id
 }
 
+data "aws_route_table" "private_rt" {
+  route_table_id = aws_route_table.private.id
+}
+
 resource "aws_security_group" "bastion" {
   name        = "bastion"
   description = "security group for bastion"
@@ -62,6 +66,7 @@ resource "aws_security_group" "web" {
     to_port         = 22
     protocol        = "tcp"
     security_groups = [aws_security_group.bastion.id]
+    //cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
@@ -117,6 +122,65 @@ resource "aws_security_group" "alb" {
   }
 }
 
+/*
+resource "local_file" "cwagent_config" {
+  content = <<-EOF
+    {
+    	"agent": {
+    		"metrics_collection_interval": 60,
+    		"run_as_user": "root"
+    	},
+    	"logs": {
+    		"logs_collected": {
+    			"files": {
+    				"collect_list": [
+    					{
+    						"file_path": "/var/log/httpd/access_log",
+    						"log_group_name": "makena-accesslog",
+    						"log_stream_name": "makena-webec2",
+    						"retention_in_days": 14
+    					}
+    				]
+    			}
+    		}
+    	},
+    	"metrics": {
+    		"aggregation_dimensions": [
+    			[
+    				"InstanceId"
+    			]
+    		],
+    		"append_dimensions": {
+    			"AutoScalingGroupName": "$${aws:AutoScalingGroupName}",
+    			"ImageId": "$${aws:ImageId}",
+    			"InstanceId": "$${aws:InstanceId}",
+    			"InstanceType": "$${aws:InstanceType}"
+    		},
+    		"metrics_collected": {
+    			"disk": {
+    				"measurement": [
+    					"used_percent"
+    				],
+    				"metrics_collection_interval": 60,
+    				"resources": [
+    					"*"
+    				]
+    			},
+    			"mem": {
+    				"measurement": [
+    					"mem_used_percent"
+    				],
+    				"metrics_collection_interval": 60
+    			}
+    		}
+    	}
+    }
+  EOF
+
+  filename = "config.json"
+}
+*/
+
 resource "aws_instance" "bastion" {
   ami                         = "ami-005f9685cb30f234b"
   instance_type               = "t2.micro"
@@ -143,15 +207,24 @@ resource "aws_instance" "web" {
                 sudo yum update -y
                 sudo yum install -y httpd.x86_64
                 sudo yum install -y mysql
-                sudo amazon-linux-extras install -y php8.0
+                sudo amazon_linux-extras install php8.0
                 echo "Your IP address is: <?php echo \$_SERVER['REMOTE_ADDR']; ?>" > /var/www/html/index.php
                 sudo systemctl start httpd.service
                 sudo systemctl enable httpd.service
+                wget -O /tmp/amazon-cloudwatch-agent.rpm 'https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm'
+                sudo rpm -U /tmp/amazon-cloudwatch-agent.rpm
+                echo "{"agent": {"metrics_collection_interval": 60,"run_as_user": "root"},"logs": {"logs_collected": {"files": {"collect_list": [{"file_path": "/var/log/httpd/access_log","log_group_name": "makena-accesslog","log_stream_name": "makena-webec2"}]}}},"metrics": {"append_dimensions": {"AutoScalingGroupName": "$${aws:AutoScalingGroupName}","ImageId": "$${aws:ImageId}","InstanceId": "$${aws:InstanceId}","InstanceType": "$${aws:InstanceType}"},"metrics_collected": {"disk": {"measurement": ["used_percent"],"metrics_collection_interval": 60,"resources": ["*"]},"mem": {"measurement": ["mem_used_percent"],"metrics_collection_interval": 60}}}}" > /opt/aws/amazon-cloudwatch-agent/bin/config.json
+                sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
+                sudo systemctl restart amazon-cloudwatch-agent
                 EOF
-
+  
   tags = {
     Name = "makena-web"
   }
+  
+  depends_on = [
+    data.aws_route_table.private_rt
+  ]
 }
 
 resource "aws_ami_from_instance" "web_ami" {
@@ -167,10 +240,6 @@ resource "aws_launch_template" "asg_template" {
   name        = "makena-template"
   description = "template for asg"
 
-  iam_instance_profile {
-    name = "ec2-acces-s3"
-  }
-
   image_id = aws_ami_from_instance.web_ami.id
 
   instance_initiated_shutdown_behavior = "terminate"
@@ -178,6 +247,10 @@ resource "aws_launch_template" "asg_template" {
   instance_type = "t2.micro"
 
   key_name = "makena-test"
+  
+  iam_instance_profile {
+    name = "ec2-acces-s3"
+  }
 
   monitoring {
     enabled = true
@@ -302,3 +375,87 @@ resource "aws_cloudfront_distribution" "alb_cloudfront" {
     Name = "makena-cloudfront"
   }
 }
+
+resource "aws_sns_topic" "alarm_sns" {
+  name = "makena-sns"
+}
+
+resource "aws_sns_topic_subscription" "sub_email" {
+  topic_arn = aws_sns_topic.alarm_sns.arn
+  protocol  = "email"
+  endpoint  = "makena.lu@ecloudvalley.com"
+}
+
+resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
+  alarm_name                = "makena-cpu-alarm"
+  comparison_operator       = "GreaterThanOrEqualToThreshold"
+  evaluation_periods        = 1
+  metric_name               = "CPUUtilization"
+  namespace                 = "AWS/EC2"
+  period                    = 60
+  statistic                 = "Average"
+  threshold                 = 100
+  alarm_description         = "This metric monitors ec2 cpu utilization"
+  alarm_actions       = [aws_sns_topic.alarm_sns.arn]
+  dimensions = {
+    InstanceId = aws_instance.web.id
+  }
+}
+
+/*
+resource "null_resource" "copy_pem" {
+  provisioner "local-exec" {
+    command = "scp -i makena-test.pem makena-test.pem config.json ec2-user@${aws_instance.bastion.public_ip}:~"
+  }
+  
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = file("makena-test.pem")
+      host        = aws_instance.bastion.public_ip
+    }
+    
+    inline = [
+      "chmod 400 ~/makena-test.pem"
+    ]
+  }
+}
+
+resource "null_resource" "run_config" {
+  connection {
+    type        = "ssh"
+    user        = "ec2-user"
+    private_key = file("makena-test.pem")
+    host        = aws_instance.bastion.public_ip
+  }
+
+  provisioner "file" {
+    connection {
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = file("makena-test.pem")
+      host        = aws_instance.web.private_ip
+    }
+    source      = "config.json"
+    destination = "/opt/aws/amazon-cloudwatch-agent/bin/config.json"
+  }
+  
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = file("makena-test.pem")
+      host        = aws_instance.web.private_ip
+    }
+
+    inline = [
+      "#!/bin/bash",
+      "mkdir -p /usr/share/collectd",
+      "touch /usr/share/collectd/types.db",
+      "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s",
+      "sudo systemctl restart amazon-cloudwatch-agent"
+    ]
+  }
+}
+*/

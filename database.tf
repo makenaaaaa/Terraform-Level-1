@@ -55,4 +55,8 @@ resource "aws_db_instance" "db_ins" {
   password               = "password"
   skip_final_snapshot    = true
   vpc_security_group_ids = [aws_security_group.rds.id]
+  
+  tags = {
+    Name = "makena-rds"
+  }
 }
