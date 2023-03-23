@@ -1,15 +1,3 @@
-data "aws_vpc" "main" {
-  id = aws_vpc.main.id
-}
-
-data "aws_subnet" "private3" {
-  id = aws_subnet.private3.id
-}
-
-data "aws_subnet" "private4" {
-  id = aws_subnet.private4.id
-}
-
 resource "aws_security_group" "rds" {
   name        = "dbsg"
   description = "security group for rds"
@@ -37,7 +25,7 @@ resource "aws_security_group" "rds" {
 resource "aws_db_subnet_group" "rds_subnet" {
   name        = "makena-subnetgroup"
   description = "makena subnet group"
-  subnet_ids  = [data.aws_subnet.private3.id, data.aws_subnet.private4.id]
+  subnet_ids  = [aws_subnet.private3.id, aws_subnet.private4.id]
 
   tags = {
     Name = "makena-subnetgroup"

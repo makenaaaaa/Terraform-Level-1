@@ -1,25 +1,5 @@
-resource "aws_instance" "bastion" {
-  ami                         = "ami-005f9685cb30f234b"
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public1.id
-  vpc_security_group_ids      = [aws_security_group.bastion.id]
-  key_name                    = "makena-test"
-  associate_public_ip_address = "true"
-
-  tags = {
-    Name = "makena-bastion"
-  }
-}
-
-resource "aws_instance" "web" {
-  ami                    = "ami-005f9685cb30f234b"
-  instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.private1.id
-  vpc_security_group_ids = [aws_security_group.web.id]
-  key_name               = "makena-test"
-  iam_instance_profile   = "ec2-acces-s3"
-
-  user_data = <<-EOF
+data "template_file" "userdata" {
+  template = <<-EOF
                 #! /bin/bash
                 sudo yum update -y
                 sudo yum install -y httpd.x86_64
@@ -57,12 +37,6 @@ resource "aws_instance" "web" {
                 				"InstanceId"
                 			]
                 		],
-                		"append_dimensions": {
-                			"AutoScalingGroupName": "$${aws:AutoScalingGroupName}",
-                			"ImageId": "$${aws:ImageId}",
-                			"InstanceId": "$${aws:InstanceId}",
-                			"InstanceType": "$${aws:InstanceType}"
-                		},
                 		"metrics_collected": {
                 			"disk": {
                 				"measurement": [
@@ -81,16 +55,70 @@ resource "aws_instance" "web" {
                 			}
                 		}
                 	}
-                }' > /opt/aws/amazon-cloudwatch-agent/bin/config.json
+                }'> /opt/aws/amazon-cloudwatch-agent/bin/config.json
                 sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
                 sudo systemctl restart amazon-cloudwatch-agent
                 EOF
-  
+}
+
+/*
+resource "aws_ami_from_instance" "web_ami" {
+  name               = "makena-ami"
+  source_instance_id = aws_instance.web.id
+
   tags = {
-    Name = "makena-web"
+    Name = "makena-ami"
+  }
+}
+*/
+
+resource "aws_launch_template" "asg_template" {
+  name        = "makena-template"
+  description = "template for asg"
+
+  image_id = "ami-005f9685cb30f234b"
+
+  instance_initiated_shutdown_behavior = "terminate"
+
+  instance_type = "t2.micro"
+
+  key_name = "makena-test"
+  
+  iam_instance_profile {
+    name = "ec2-acces-s3"
+  }
+
+  monitoring {
+    enabled = true
   }
   
-  depends_on = [
-    aws_route_table.private
-  ]
+  user_data = "${base64encode(data.template_file.userdata.rendered)}"
+
+  vpc_security_group_ids = [aws_security_group.web.id]
+
+  update_default_version = true
+
+  tags = {
+    Name = "makena-template"
+  }
+}
+
+resource "aws_autoscaling_group" "myasg" {
+  name                = "makena-asg"
+  vpc_zone_identifier = [aws_subnet.private1.id, aws_subnet.private2.id]
+  desired_capacity    = 1
+  max_size            = 3
+  min_size            = 1
+  target_group_arns   = [aws_lb_target_group.tg.arn]
+
+  launch_template {
+    id      = aws_launch_template.asg_template.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "makena-asg"
+    propagate_at_launch = true
+  }
 }
