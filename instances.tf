@@ -1,22 +1,25 @@
 resource "aws_instance" "bastion" {
-  ami                         = "ami-005f9685cb30f234b"
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.public1.id
+  ami                         = var.instance["ami"]
+  instance_type               = var.instance["instance_type"]
+  subnet_id                   = aws_subnet.public[0].id
   vpc_security_group_ids      = [aws_security_group.bastion.id]
-  key_name                    = "makena-test"
+  key_name                    = var.instance["key_name"]
   associate_public_ip_address = "true"
 
-  tags = {
-    Name = "makena-bastion"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}bastion"
+    }
+  )
 }
 
 resource "aws_instance" "web" {
-  ami                    = "ami-005f9685cb30f234b"
-  instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.private1.id
+  ami                    = var.instance["ami"]
+  instance_type          = var.instance["instance_type"]
+  subnet_id              = aws_subnet.private[0].id
   vpc_security_group_ids = [aws_security_group.web.id]
-  key_name               = "makena-test"
+  key_name               = var.instance["key_name"]
   iam_instance_profile   = "ec2-acces-s3"
 
   user_data = <<-EOF
@@ -84,11 +87,19 @@ resource "aws_instance" "web" {
                 }' > /opt/aws/amazon-cloudwatch-agent/bin/config.json
                 sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
                 sudo systemctl restart amazon-cloudwatch-agent
+                sudo yum install -y amazon-efs-utils
+                pip3 install botocore
+                sudo mkdir -p /usr/bin/efs
+                sudo mount -t efs -o tls ${aws_efs_file_system.efs.id}:/ /usr/bin/efs
+                sudo touch /usr/bin/efs/test-file.txt
                 EOF
   
-  tags = {
-    Name = "makena-web"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}web"
+    }
+  )
   
   depends_on = [
     aws_route_table.private

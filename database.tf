@@ -1,50 +1,32 @@
-resource "aws_security_group" "rds" {
-  name        = "dbsg"
-  description = "security group for rds"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "makena-db"
-  }
-}
-
 resource "aws_db_subnet_group" "rds_subnet" {
-  name        = "makena-subnetgroup"
+  name        = "${var.prefix}subnetgroup"
   description = "makena subnet group"
-  subnet_ids  = [aws_subnet.private3.id, aws_subnet.private4.id]
+  subnet_ids  = [aws_subnet.private[2].id, aws_subnet.private[3].id]
 
-  tags = {
-    Name = "makena-subnetgroup"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}subnetgroup"
+    }
+  )
 }
 
 resource "aws_db_instance" "db_ins" {
   allocated_storage      = 20
-  identifier             = "makena-rds"
+  identifier             = "${var.prefix}rds"
   engine                 = "mysql"
   engine_version         = "8.0.28"
   instance_class         = "db.t3.micro"
   db_subnet_group_name   = aws_db_subnet_group.rds_subnet.name
-  username               = "makena"
-  password               = "password"
+  username               = var.db_user
+  password               = var.db_pw
   skip_final_snapshot    = true
   vpc_security_group_ids = [aws_security_group.rds.id]
   
-  tags = {
-    Name = "makena-rds"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}rds"
+    }
+  )
 }

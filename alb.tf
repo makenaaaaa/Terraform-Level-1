@@ -1,5 +1,5 @@
 resource "aws_lb_target_group" "tg" {
-  name     = "makena-tg"
+  name     = "${var.prefix}tg"
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
@@ -8,6 +8,13 @@ resource "aws_lb_target_group" "tg" {
     enabled = true
     path    = "/index.php"
   }
+  
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}tg"
+    }
+  )
 }
 
 resource "aws_lb" "alb" {
@@ -15,11 +22,14 @@ resource "aws_lb" "alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
-  subnets            = [aws_subnet.public1.id, aws_subnet.public2.id]
+  subnets            = [aws_subnet.public[0].id, aws_subnet.public[1].id]
 
-  tags = {
-    Name = "makena-alb"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}alb"
+    }
+  )
 }
 
 resource "aws_lb_listener" "alb_tg_listen" {
@@ -31,6 +41,8 @@ resource "aws_lb_listener" "alb_tg_listen" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg.arn
   }
+  
+  tags = var.tags
 }
 
 resource "aws_lb_target_group_attachment" "instance" {

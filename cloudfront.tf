@@ -1,62 +1,3 @@
-/*
-resource "local_file" "cwagent_config" {
-  content = <<-EOF
-    {
-    	"agent": {
-    		"metrics_collection_interval": 60,
-    		"run_as_user": "root"
-    	},
-    	"logs": {
-    		"logs_collected": {
-    			"files": {
-    				"collect_list": [
-    					{
-    						"file_path": "/var/log/httpd/access_log",
-    						"log_group_name": "makena-accesslog",
-    						"log_stream_name": "makena-webec2",
-    						"retention_in_days": 14
-    					}
-    				]
-    			}
-    		}
-    	},
-    	"metrics": {
-    		"aggregation_dimensions": [
-    			[
-    				"InstanceId"
-    			]
-    		],
-    		"append_dimensions": {
-    			"AutoScalingGroupName": "$${aws:AutoScalingGroupName}",
-    			"ImageId": "$${aws:ImageId}",
-    			"InstanceId": "$${aws:InstanceId}",
-    			"InstanceType": "$${aws:InstanceType}"
-    		},
-    		"metrics_collected": {
-    			"disk": {
-    				"measurement": [
-    					"used_percent"
-    				],
-    				"metrics_collection_interval": 60,
-    				"resources": [
-    					"*"
-    				]
-    			},
-    			"mem": {
-    				"measurement": [
-    					"mem_used_percent"
-    				],
-    				"metrics_collection_interval": 60
-    			}
-    		}
-    	}
-    }
-  EOF
-
-  filename = "config.json"
-}
-*/
-
 resource "aws_cloudfront_distribution" "alb_cloudfront" {
   origin {
     domain_name = aws_lb.alb.dns_name
@@ -102,13 +43,18 @@ resource "aws_cloudfront_distribution" "alb_cloudfront" {
     cloudfront_default_certificate = true
   }
 
-  tags = {
-    Name = "makena-cloudfront"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}cloudfront"
+    }
+  )
 }
 
 resource "aws_sns_topic" "alarm_sns" {
-  name = "makena-sns"
+  name = "${var.prefix}sns"
+  
+  tags = var.tags
 }
 
 resource "aws_sns_topic_subscription" "sub_email" {
@@ -118,7 +64,7 @@ resource "aws_sns_topic_subscription" "sub_email" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
-  alarm_name                = "makena-cpu-alarm"
+  alarm_name                = "${var.prefix}cpu-alarm"
   comparison_operator       = "GreaterThanOrEqualToThreshold"
   evaluation_periods        = 1
   metric_name               = "CPUUtilization"
@@ -131,62 +77,6 @@ resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
   dimensions = {
     InstanceId = aws_instance.web.id
   }
-}
-
-/*
-resource "null_resource" "copy_pem" {
-  provisioner "local-exec" {
-    command = "scp -i makena-test.pem makena-test.pem config.json ec2-user@${aws_instance.bastion.public_ip}:~"
-  }
   
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ec2-user"
-      private_key = file("makena-test.pem")
-      host        = aws_instance.bastion.public_ip
-    }
-    
-    inline = [
-      "chmod 400 ~/makena-test.pem"
-    ]
-  }
+  tags = var.tags
 }
-
-resource "null_resource" "run_config" {
-  connection {
-    type        = "ssh"
-    user        = "ec2-user"
-    private_key = file("makena-test.pem")
-    host        = aws_instance.bastion.public_ip
-  }
-
-  provisioner "file" {
-    connection {
-      type        = "ssh"
-      user        = "ec2-user"
-      private_key = file("makena-test.pem")
-      host        = aws_instance.web.private_ip
-    }
-    source      = "config.json"
-    destination = "/opt/aws/amazon-cloudwatch-agent/bin/config.json"
-  }
-  
-  provisioner "remote-exec" {
-    connection {
-      type        = "ssh"
-      user        = "ec2-user"
-      private_key = file("makena-test.pem")
-      host        = aws_instance.web.private_ip
-    }
-
-    inline = [
-      "#!/bin/bash",
-      "mkdir -p /usr/share/collectd",
-      "touch /usr/share/collectd/types.db",
-      "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s",
-      "sudo systemctl restart amazon-cloudwatch-agent"
-    ]
-  }
-}
-*/

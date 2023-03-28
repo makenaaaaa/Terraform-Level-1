@@ -58,22 +58,16 @@ data "template_file" "userdata" {
                 }'> /opt/aws/amazon-cloudwatch-agent/bin/config.json
                 sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
                 sudo systemctl restart amazon-cloudwatch-agent
+                sudo yum install -y amazon-efs-utils
+                pip3 install botocore
+                sudo mkdir -p /usr/bin/efs
+                sudo mount -t efs -o tls ${aws_efs_file_system.efs.id}:/ /usr/bin/efs
+                sudo touch /usr/bin/efs/test-file.txt
                 EOF
 }
 
-/*
-resource "aws_ami_from_instance" "web_ami" {
-  name               = "makena-ami"
-  source_instance_id = aws_instance.web.id
-
-  tags = {
-    Name = "makena-ami"
-  }
-}
-*/
-
 resource "aws_launch_template" "asg_template" {
-  name        = "makena-template"
+  name        = "${var.prefix}template"
   description = "template for asg"
 
   image_id = "ami-005f9685cb30f234b"
@@ -82,7 +76,7 @@ resource "aws_launch_template" "asg_template" {
 
   instance_type = "t2.micro"
 
-  key_name = "makena-test"
+  key_name = var.instance["key_name"]
   
   iam_instance_profile {
     name = "ec2-acces-s3"
@@ -98,14 +92,17 @@ resource "aws_launch_template" "asg_template" {
 
   update_default_version = true
 
-  tags = {
-    Name = "makena-template"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}template"
+    }
+  )
 }
 
 resource "aws_autoscaling_group" "myasg" {
-  name                = "makena-asg"
-  vpc_zone_identifier = [aws_subnet.private1.id, aws_subnet.private2.id]
+  name                = "${var.prefix}asg"
+  vpc_zone_identifier = [aws_subnet.private[0].id, aws_subnet.private[1].id]
   desired_capacity    = 1
   max_size            = 3
   min_size            = 1
@@ -118,7 +115,7 @@ resource "aws_autoscaling_group" "myasg" {
 
   tag {
     key                 = "Name"
-    value               = "makena-asg"
+    value               = "${var.prefix}asg"
     propagate_at_launch = true
   }
 }

@@ -6,86 +6,65 @@ resource "aws_vpc" "main" {
   cidr_block       = "10.0.0.0/16"
   instance_tenancy = "default"
 
-  tags = {
-    Name = "makena-vpc"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}vpc"
+    }
+  )
 }
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "makena-igw"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}igw"
+    }
+  )
 }
 
-resource "aws_subnet" "public1" {
+resource "aws_subnet" "public" {
+  count = 2
+  
   vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "us-east-1a"
-
-  tags = {
-    Name = "makena-public1"
-  }
+  cidr_block        = "10.0.${count.index+1}.0/24"
+  availability_zone = count.index % 2 == 0 ? var.az[0] : var.az[1]
+  
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}public${count.index+1}"
+    }
+  )
 }
 
-resource "aws_subnet" "public2" {
+resource "aws_subnet" "private" {
+  count = 4
+  
   vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "us-east-1b"
-
-  tags = {
-    Name = "makena-public2"
-  }
-}
-
-resource "aws_subnet" "private1" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.3.0/24"
-  availability_zone = "us-east-1a"
-
-  tags = {
-    Name = "makena-private1"
-  }
-}
-
-resource "aws_subnet" "private2" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.4.0/24"
-  availability_zone = "us-east-1b"
-
-  tags = {
-    Name = "makena-private2"
-  }
-}
-
-resource "aws_subnet" "private3" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.5.0/24"
-  availability_zone = "us-east-1a"
-
-  tags = {
-    Name = "makena-private3"
-  }
-}
-
-resource "aws_subnet" "private4" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.6.0/24"
-  availability_zone = "us-east-1b"
-
-  tags = {
-    Name = "makena-private2"
-  }
+  cidr_block        = "10.0.${count.index+3}.0/24"
+  availability_zone = count.index % 2 == 0 ? var.az[0] : var.az[1]
+  
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}private${count.index+1}"
+    }
+  )
 }
 
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.public2.id
+  subnet_id     = aws_subnet.public[1].id
 
-  tags = {
-    Name = "makena-nat"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}nat"
+    }
+  )
 
   depends_on = [aws_internet_gateway.igw]
 }
@@ -93,9 +72,12 @@ resource "aws_nat_gateway" "main" {
 resource "aws_eip" "nat_eip" {
   vpc = true
 
-  tags = {
-    Name = "makena-eip"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}eip"
+    }
+  )
 }
 
 resource "aws_route_table" "public" {
@@ -106,9 +88,12 @@ resource "aws_route_table" "public" {
     gateway_id = aws_internet_gateway.igw.id
   }
 
-  tags = {
-    Name = "makena-public"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}public"
+    }
+  )
 }
 
 resource "aws_route_table" "private" {
@@ -119,37 +104,22 @@ resource "aws_route_table" "private" {
     nat_gateway_id = aws_nat_gateway.main.id
   }
 
-  tags = {
-    Name = "makena-private"
-  }
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.prefix}private"
+    }
+  )
 }
 
-resource "aws_route_table_association" "public1" {
-  subnet_id      = aws_subnet.public1.id
+resource "aws_route_table_association" "public" {
+  count = length(aws_subnet.public.*.id)
+  subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_route_table_association" "public2" {
-  subnet_id      = aws_subnet.public2.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "private1" {
-  subnet_id      = aws_subnet.private1.id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "private2" {
-  subnet_id      = aws_subnet.private2.id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "private3" {
-  subnet_id      = aws_subnet.private3.id
-  route_table_id = aws_route_table.private.id
-}
-
-resource "aws_route_table_association" "private4" {
-  subnet_id      = aws_subnet.private4.id
+resource "aws_route_table_association" "private" {
+  count = length(aws_subnet.private.*.id)
+  subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private.id
 }
