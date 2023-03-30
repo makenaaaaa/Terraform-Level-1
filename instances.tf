@@ -54,8 +54,7 @@ module "web" {
                 sudo yum install -y mysql
                 sudo yum install -y amazon-linux-extras
                 sudo amazon-linux-extras install -y php8.0
-                #sudo yum install -y php80
-                echo "Your IP address is: <?php echo \$_SERVER['REMOTE_ADDR']; ?>" > /var/www/html/index.php
+                echo "Your IP address is: $(curl http://169.254.169.254/latest/meta-data/local-ipv4)" > /var/www/html/index.php
                 sudo systemctl start httpd.service
                 sudo systemctl enable httpd.service
                 wget -O /tmp/amazon-cloudwatch-agent.rpm 'https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm'
