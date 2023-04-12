@@ -1,4 +1,4 @@
-// set project tags
+// Set project tags
 variable "tags" {
   type = map(any)
 
@@ -8,14 +8,14 @@ variable "tags" {
   }
 }
 
-// set prefix for name tag
+// Set prefix for name tag
 variable "prefix" {
   type = string
 
   default = "makena-"
 }
 
-// set db account data
+// Set DB account data
 variable "db_user" {
   type = string
 }
@@ -24,21 +24,21 @@ variable "db_pw" {
   type = string
 }
 
-// set availability zones
+// Set availability zones
 variable "az" {
   type = list(string)
 
   default = ["us-east-1a", "us-east-1b"]
 }
 
-// set all traffic
+// Set all traffic
 variable "sg_all" {
   type = list(string)
 
   default = ["0.0.0.0/0"]
 }
 
-// set AMI ID, instance type, and key name
+// Set AMI ID, instance type, and key name
 variable "instance" {
   type = map(any)
 

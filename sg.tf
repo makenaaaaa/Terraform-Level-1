@@ -1,11 +1,11 @@
-// bastion instance
+// Bastion instance
 module "bastion_sg" {
   source = "terraform-aws-modules/security-group/aws"
 
   name   = "makena-bastion"
   vpc_id = module.vpc.vpc_id
 
-  // allow inbound from HTTP and SSH
+  // Allow inbound from HTTP and SSH
   ingress_cidr_blocks = var.sg_all
   ingress_rules       = ["http-80-tcp", "ssh-tcp"]
 
@@ -15,18 +15,18 @@ module "bastion_sg" {
   tags = var.tags
 }
 
-// web instance
+// Web instance
 module "web_sg" {
   source = "terraform-aws-modules/security-group/aws"
 
   name   = "makena-web"
   vpc_id = module.vpc.vpc_id
 
-  // allow inbound from HTTP and NFS
+  // Allow inbound from HTTP and NFS
   ingress_cidr_blocks = var.sg_all
   ingress_rules       = ["http-80-tcp", "nfs-tcp"]
 
-  // allow SSH inbound from bastion instance
+  // Allow SSH inbound from bastion instance
   computed_ingress_with_source_security_group_id = [
     {
       rule                     = "ssh-tcp"
@@ -48,7 +48,7 @@ module "alb_sg" {
   name   = "makena-alb"
   vpc_id = module.vpc.vpc_id
 
-  // allow inbound from HTTP and HTTPS
+  // Allow inbound from HTTP and HTTPS
   ingress_cidr_blocks = var.sg_all
   ingress_rules       = ["http-80-tcp", "https-443-tcp"]
 
@@ -65,7 +65,7 @@ module "rds_sg" {
   name   = "makena-rds"
   vpc_id = module.vpc.vpc_id
 
-  // allow inbound for MYSQL
+  // Allow inbound for MYSQL
   ingress_cidr_blocks = var.sg_all
   ingress_rules       = ["mysql-tcp"]
 
@@ -82,7 +82,7 @@ module "efs_sg" {
   name   = "makena-efs"
   vpc_id = module.vpc.vpc_id
 
-  # allow inbound from NFS
+  # Allow inbound from NFS
   ingress_cidr_blocks = var.sg_all
   ingress_rules       = ["nfs-tcp"]
 

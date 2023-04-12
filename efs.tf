@@ -1,7 +1,7 @@
 module "efs" {
   source = "terraform-aws-modules/efs/aws"
 
-  // file system
+  // File system
   name      = "makena-efs"
   encrypted = true
 
@@ -11,7 +11,7 @@ module "efs" {
 
   attach_policy = false
 
-  // mount targets
+  // Mount targets
   mount_targets = {
     "us-east-1a" = {
       subnet_id = module.vpc.private_subnets[0]
@@ -21,13 +21,13 @@ module "efs" {
     }
   }
 
-  # create security group
+  # Create security group
   security_group_name        = "makena-efs"
   security_group_description = "EFS security group"
   security_group_vpc_id      = module.vpc.vpc_id
   security_group_rules = {
     vpc = {
-      // relying on the defaults provided for EFS/NFS (2049/TCP + ingress)
+      // Relying on the defaults provided for EFS/NFS (2049/TCP + ingress)
       description = "NFS ingress from VPC private subnets"
       cidr_blocks = var.sg_all
     }

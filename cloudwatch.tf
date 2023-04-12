@@ -1,4 +1,4 @@
-// create sns topic and subscribe using email
+// Create SNS topic and subscribe using email
 module "sns_topic" {
   source = "terraform-aws-modules/sns/aws"
 
@@ -14,7 +14,7 @@ module "sns_topic" {
   }
 }
 
-// create alarm - if CPU utilization exceeds 90%, the SNS topic is triggered
+// Create alarm - if CPU utilization exceeds 90%, the SNS topic is triggered
 module "metric_alarm" {
   source  = "terraform-aws-modules/cloudwatch/aws//modules/metric-alarm"
   version = "~> 3.0"

@@ -1,4 +1,4 @@
-// user data - user data in launch template should be base64 encoded
+// User data - user data in launch template should be base64 encoded
 data "template_file" "userdata" {
   template = <<-EOF
                 #! /bin/bash
@@ -78,7 +78,7 @@ module "asg" {
   vpc_zone_identifier = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
   target_group_arns   = module.alb.target_group_arns
 
-  // launch template
+  // Launch template
   launch_template_name        = "makena-template"
   launch_template_description = "template for asg"
   update_default_version      = true

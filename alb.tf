@@ -7,12 +7,12 @@ module "alb" {
   load_balancer_type = "application"
   internal           = false
 
-  // internet facing ALB - chosen subnets must be public subnets to receive traffic from ALB
+  // Internet facing ALB - chosen subnets must be public subnets to receive traffic from ALB
   vpc_id          = module.vpc.vpc_id
   subnets         = [module.vpc.public_subnets[0], module.vpc.public_subnets[1]]
   security_groups = [module.alb_sg.security_group_id]
 
-  // create target group and add web instance
+  // Create target group and add web instance
   target_groups = [
     {
       name             = "makena-tg"
@@ -28,7 +28,7 @@ module "alb" {
     }
   ]
 
-  // listen to 80 port
+  // Listen to 80 port
   http_tcp_listeners = [
     {
       port               = 80

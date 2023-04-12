@@ -2,7 +2,7 @@ resource "aws_s3_bucket" "b" {
   bucket = "makenatest20230406"
   acl    = "public-read"
 
-  // static website hosting
+  // Static website hosting
   website {
     index_document = "index.html"
   }
@@ -16,7 +16,7 @@ resource "aws_s3_bucket" "b" {
   }
 }
 
-// upload index.html
+// Upload index.html
 resource "aws_s3_bucket_object" "file_upload" {
   bucket       = aws_s3_bucket.b.id
   key          = "index.html"

@@ -1,4 +1,4 @@
-// bastion instance
+// Bastion instance
 module "bastion" {
   source  = "terraform-aws-modules/ec2-instance/aws"
   version = "~> 3.0"
@@ -16,7 +16,7 @@ module "bastion" {
   tags = var.tags
 }
 
-// web instance
+// Web instance
 module "web" {
   source  = "terraform-aws-modules/ec2-instance/aws"
   version = "~> 3.0"

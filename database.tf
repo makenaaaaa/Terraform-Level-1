@@ -12,13 +12,13 @@ module "db" {
   create_db_option_group    = false
   create_db_parameter_group = false
 
-  create_random_password = false // will ignore password argument if not explicitly set to false
+  create_random_password = false // Will ignore password argument if not explicitly set to false
   username               = var.db_user
   password               = var.db_pw
 
   vpc_security_group_ids = [module.rds_sg.security_group_id]
 
-  // subnet group
+  // Subnet group
   create_db_subnet_group = true
   subnet_ids             = [module.vpc.private_subnets[2], module.vpc.private_subnets[3]]
 

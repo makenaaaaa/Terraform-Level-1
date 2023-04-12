@@ -7,7 +7,7 @@ module "cdn" {
   retain_on_delete    = false
   wait_for_deployment = true
 
-  // set origin to ALB domain
+  // Set origin to ALB domain
   origin = {
     alb = {
       domain_name = module.alb.lb_dns_name
@@ -20,7 +20,7 @@ module "cdn" {
     }
   }
 
-  // set cache methods
+  // Set cache methods
   default_cache_behavior = {
     target_origin_id       = "alb"
     viewer_protocol_policy = "redirect-to-https"
