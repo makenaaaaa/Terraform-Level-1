@@ -7,10 +7,12 @@ module "alb" {
   load_balancer_type = "application"
   internal           = false
 
+  // internet facing ALB - chosen subnets must be public subnets to receive traffic from ALB
   vpc_id          = module.vpc.vpc_id
   subnets         = [module.vpc.public_subnets[0], module.vpc.public_subnets[1]]
   security_groups = [module.alb_sg.security_group_id]
 
+  // create target group and add web instance
   target_groups = [
     {
       name             = "makena-tg"
@@ -26,6 +28,7 @@ module "alb" {
     }
   ]
 
+  // listen to 80 port
   http_tcp_listeners = [
     {
       port               = 80
@@ -35,58 +38,3 @@ module "alb" {
   ]
   tags = var.tags
 }
-
-/*
-resource "aws_lb_target_group" "tg" {
-  name     = "${var.prefix}tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = module.vpc.vpc_id
-
-  health_check {
-    enabled = true
-    path    = "/index.php"
-  }
-  
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.prefix}tg"
-    }
-  )
-}
-
-resource "aws_lb" "alb" {
-  name               = "makena-alb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [module.alb_sg.security_group_id]
-  subnets            = [module.vpc.public_subnets[0], module.vpc.public_subnets[1]]
-
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.prefix}alb"
-    }
-  )
-}
-
-resource "aws_lb_listener" "alb_tg_listen" {
-  load_balancer_arn = aws_lb.alb.arn
-  port              = "80"
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.tg.arn
-  }
-  
-  tags = var.tags
-}
-
-resource "aws_lb_target_group_attachment" "instance" {
-  target_group_arn = aws_lb_target_group.tg.arn
-  target_id        = module.web.id
-  port             = 80
-}
-*/

@@ -1,3 +1,4 @@
+// user data - user data in launch template should be base64 encoded
 data "template_file" "userdata" {
   template = <<-EOF
                 #! /bin/bash
@@ -69,9 +70,7 @@ data "template_file" "userdata" {
 module "asg" {
   source = "terraform-aws-modules/autoscaling/aws"
 
-  # Autoscaling group
-  name                        = "makena-asg"
-  launch_template_description = "template for asg"
+  name = "makena-asg"
 
   min_size            = 1
   max_size            = 3
@@ -79,9 +78,10 @@ module "asg" {
   vpc_zone_identifier = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
   target_group_arns   = module.alb.target_group_arns
 
-  # Launch template
-  launch_template_name   = "makena-template"
-  update_default_version = true
+  // launch template
+  launch_template_name        = "makena-template"
+  launch_template_description = "template for asg"
+  update_default_version      = true
 
   image_id                             = var.instance["ami"]
   instance_type                        = var.instance["instance_type"]
@@ -91,7 +91,7 @@ module "asg" {
   security_groups                      = [module.web_sg.security_group_id]
   user_data                            = base64encode(data.template_file.userdata.rendered)
 
-  # IAM role & instance profile
+  // IAM role & instance profile
   iam_instance_profile_arn = "arn:aws:iam::281630892023:instance-profile/ec2-acces-s3"
 
   placement = {
@@ -100,59 +100,3 @@ module "asg" {
 
   tags = var.tags
 }
-
-/*
-resource "aws_launch_template" "asg_template" {
-  name        = "${var.prefix}template"
-  description = "template for asg"
-
-  image_id = "ami-005f9685cb30f234b"
-
-  instance_initiated_shutdown_behavior = "terminate"
-
-  instance_type = "t2.micro"
-
-  key_name = var.instance["key_name"]
-  
-  iam_instance_profile {
-    name = "ec2-acces-s3"
-  }
-
-  monitoring {
-    enabled = true
-  }
-  
-  user_data = "${base64encode(data.template_file.userdata.rendered)}"
-
-  vpc_security_group_ids = [module.web_sg.security_group_id]
-
-  update_default_version = true
-
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.prefix}template"
-    }
-  )
-}
-
-resource "aws_autoscaling_group" "myasg" {
-  name                = "${var.prefix}asg"
-  vpc_zone_identifier = [module.vpc.private_subnets[0], module.vpc.private_subnets[1]]
-  desired_capacity    = 1
-  max_size            = 3
-  min_size            = 1
-  target_group_arns   = module.alb.target_group_arns
-
-  launch_template {
-    id      = aws_launch_template.asg_template.id
-    version = "$Latest"
-  }
-
-  tag {
-    key                 = "Name"
-    value               = "${var.prefix}asg"
-    propagate_at_launch = true
-  }
-}
-*/
