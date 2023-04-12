@@ -58,7 +58,7 @@ module "alb_sg" {
   tags = var.tags
 }
 
-# RDS
+// RDS
 module "rds_sg" {
   source = "terraform-aws-modules/security-group/aws"
 
@@ -82,7 +82,7 @@ module "efs_sg" {
   name   = "makena-efs"
   vpc_id = module.vpc.vpc_id
 
-  # Allow inbound from NFS
+  // Allow inbound from NFS
   ingress_cidr_blocks = var.sg_all
   ingress_rules       = ["nfs-tcp"]
 

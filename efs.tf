@@ -21,7 +21,7 @@ module "efs" {
     }
   }
 
-  # Create security group
+  // Create security group
   security_group_name        = "makena-efs"
   security_group_description = "EFS security group"
   security_group_vpc_id      = module.vpc.vpc_id
